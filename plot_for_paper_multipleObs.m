@@ -5,7 +5,7 @@ close all
 
 % Log in the data
  %load('data/Multi_N5000_alpha_3_safety_09')
-load('data/Multi_N1000_alpha_03_safety_09')
+load('data/Multi_N2000_alpha_02_safety_09')
 
 % start the figure
 figure
@@ -27,7 +27,7 @@ edges = [obstacle_edge(:).start];
 edges_re = reshape(edges,[2,numel(edges)/2]);
 % You need to designate the number of vertices of each obstacle here
 % The first element should be 0
-num_vert = [0, 4, 3, 3, 4, 4, 4];
+num_vert = [0, 4, 4];
 
 
 % goal region patch : green

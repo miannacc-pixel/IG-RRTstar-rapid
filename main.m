@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-N = 1000; % Maximum number of nodes
+N = 2000; % Maximum number of nodes
 
 %% Saving parameters
 % Variables used for save data
@@ -71,7 +71,7 @@ remove_ID = cell(N/bnb_val,1);
 %% Variables used for the RRT*
 
 % neighboring (=rewiring) radius computation
-radius = 0.3; %neiborhood and rewirimg radius
+radius = 0.5; %neiborhood and rewirimg radius
 radius_min = inv(realmax); %minimum radius
 % dimension of the space (Current version only works with "dim = 2")
 dim=2; % dimension of the problem
@@ -81,13 +81,13 @@ gamma_star = (2+2/dim)^(1/dim)* (miu_X_free/zeta_d)*(1/dim);
 
 
 % Weight on information cost
-alpha = 0.3;
+alpha = 0.2;
 
 % The gain of noise (In the paper, we denote as "W")
 R = (1/1000)*eye(2);
 
 % 90 percent confidence bound
-chi = chi2inv(0.9,2);
+chi = chi2inv(0.8,2);
 
 %% Enviroment definition and Properties
 
@@ -100,21 +100,22 @@ chi = chi2inv(0.9,2);
         obs_polyshape= obstacle_polyshape(); %definition of obstacles to use polyshape functionalities of Matlab
         
         % Target(final) area [xmin, xmax; ymin, ymax]
-        target = [0.6, 0.7; 0, 0.1]; 
+        target = [0.8, 0.9; 0.1, 0.2]; 
 
         % Path planning area
         bound(1).x = [0,1]; % X direction
         bound(2).x = [0,1]; % Y direction
         
         % The acceptable range for the eigenvalues of the sampled covariance matrix
-        bound(1).P = [10^-9,10^-1]; 
-        bound(2).P = [10^-9,10^-1];
+        bound(1).P = [10^-9,10^-3]; 
+        bound(2).P = [10^-9,10^-3];
         
         % The position of the initial node
-        node(1).x = [0.15, 0.5];
+        node(1).x = [0.1, 0.1];
         
 %% The setting for initial node
-node(1).P = [bound(1).P(1),0;0,bound(2).P(1)];
+Pinit = 1e-4 * eye(2);
+node(1).P = Pinit;
 node(1).parent = 0;
 node(1).value = 0;
 
@@ -128,7 +129,7 @@ min_path_leng{1} = -10^10; % No path to target region is found initially
 %% Parameters for collision checking in transition between nodes
 
 % How many intermediate ellipses to use for collision check
-num_props = 5;
+num_props = 10;
 
 % Definition of intermediate ellipses 
 prop(1:num_props) = struct('x', ini_st*ones(1,2), 'P', ini_st*eye(2), 'ra', ini_st,...
