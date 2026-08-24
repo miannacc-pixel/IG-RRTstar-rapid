@@ -2,12 +2,16 @@
 ===============================================================================================================================
 Basic information
 First, create a empty folder "data", where the data will be saved.
-By running "main.m", you can start the modified IG-RRT* path-planning algorithm. 
+By running "main.m", you can start the information-geometric PRM path-planning algorithm.
 ===============================================================================================================================
 
 Codes related with the Path-planning simulation:
 
-main.m: The main function to run IG-RRT*
+main.m: The main function to run the directed information-geometric PRM
+
+dijkstra_prm.m: Computes shortest paths on the completed directed roadmap
+
+reconstruct_prm_path.m: Reconstructs the final source-to-target PRM path
 
 obstacle_multi.m & obstacle_polyshape.m :  specify the obstacles position and their shape for a sample "multiple obstacles" enviroment
 
@@ -15,13 +19,7 @@ sample_x_P_randomly.m: It samples x and P randomly
 
 sample_polyshape_check.m: samples x outside of all obstacle. It is used in sample_x_P_randomly.m
 
-find_nearest.m: It finds the nearest nodes based on the vector 2-norm and Frobenius norm
-
-find_neighbors.m: It finds the set of neighboring nodes based on the vector 2-norm and Frobenius norm
-
-find_parent.m: find parent of a node from the RRT* tree
-
-scale_rrt_point.m: It conducts scaling in RRT* algorithm
+sample_x_P_randomly.m: It samples collision-free belief states for roadmap vertices
 
 error_ellipse.m: Calculate the length of the long & short axes, angle, and bounding box of a given ellipse
 
@@ -29,11 +27,7 @@ dist_ig_mat.m & dist_ig_mat2.m: The functions which calculate the RI-distance. T
 
 Q_hat_sol.m: It computes information cost using SVD
 
-branch_and_bound_2D.m: It conducts branch and bound algorithm
-
-find_optimal_path_2D.m: The function which find the optimal path from the existing nodes
-
-check_lossless.m: check if a transition is lossless 
+check_lossless.m: Checks whether a directed roadmap transition is lossless
 
 
 ******** The function related for obstacle checking ********
