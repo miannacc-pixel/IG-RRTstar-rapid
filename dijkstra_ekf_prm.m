@@ -1,0 +1,77 @@
+function [node, distance, predecessor] = dijkstra_ekf_prm(node, neighbor_ID, ...
+    F, R, alpha, obstacle_edge, chi, bound, num_props, prop)
+%DIJKSTRA_EKF_PRM Dijkstra search with EKF-propagated covariance.
+%
+% The PRM samples positions only. Whenever a shortest-path candidate extends
+% from a settled vertex, its endpoint covariance is predicted as
+% P_next = F*P_current*F' + R*Dtravel. This preserves the original PRM
+% outputs (node.value and node.parent) while replacing random P sampling.
+
+N = numel(node);
+distance = inf(N,1);
+predecessor = zeros(N,1);
+settled = false(N,1);
+distance(1) = 0;
+
+while true
+    candidate_ID = find(~settled);
+    if isempty(candidate_ID)
+        break
+    end
+
+    [minimum_distance, relative_ID] = min(distance(candidate_ID));
+    if isinf(minimum_distance)
+        break
+    end
+
+    current_ID = candidate_ID(relative_ID);
+    settled(current_ID) = true;
+    next_ID = neighbor_ID{current_ID};
+    next_ID(next_ID == current_ID) = [];
+
+    for jj = 1:numel(next_ID)
+        next_vertex = next_ID(jj);
+        if settled(next_vertex)
+            continue
+        end
+
+        travel_distance = norm(node(next_vertex).x - node(current_ID).x);
+        P_next = F * node(current_ID).P * F.' + R * travel_distance;
+        P_next = (P_next + P_next.') / 2;
+
+        % The legacy collision checker requires the ellipse fields at both
+        % ends of the edge, so construct only the candidate endpoint here.
+        [ra, rb, ang, ellipse_rect] = error_ellipse(node(next_vertex).x, P_next, chi);
+        next_node = node(next_vertex);
+        next_node.P = P_next;
+        next_node.ra = ra;
+        next_node.rb = rb;
+        next_node.ang = ang;
+        next_node.ellipse_rect = ellipse_rect;
+
+        issue_flag = psuedo_obs_check_line2_oct(node(current_ID), next_node, ...
+            obstacle_edge, R, chi, bound, num_props, prop);
+        if issue_flag
+            continue
+        end
+
+        % P_next is exactly the EKF prediction P_hat used by dist_ig_mat.
+        % Therefore its information term is zero, while the original cost
+        % function and interface remain available for a later modification.
+        edge_cost = dist_ig_mat(node(current_ID).x.', node(current_ID).P, ...
+            next_node.x.', next_node.P, alpha, R);
+        tentative_distance = distance(current_ID) + edge_cost;
+
+        if tentative_distance < distance(next_vertex)
+            distance(next_vertex) = tentative_distance;
+            predecessor(next_vertex) = current_ID;
+            node(next_vertex) = next_node;
+        end
+    end
+end
+
+for ii = 1:N
+    node(ii).value = distance(ii);
+    node(ii).parent = predecessor(ii);
+end
+end
