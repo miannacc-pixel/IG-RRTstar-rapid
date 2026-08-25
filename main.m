@@ -2,33 +2,36 @@ clear all
 close all
 clc
 
-N = 10000; % Total number of roadmap vertices, including the initial vertex
+N = 2000; % Total number of roadmap vertices, including the initial vertex
 
 %% Definition of the roadmap vertex structure
 
-% Just setting initial values for unsampled vertices
-ini_st = -100;
-ini_P = diag([-100 5]);
-ini_value = inf;
+% Just setting initial values for unsampled vertices 
+ini_st = -100; % initial value for unsampled nodes
+ini_P = diag([-100 5]); % initial covariance for unsampled nodes
+ini_value = 5000; % initial cost for unsampled nodes
 
-% The fields below are retained from the IG-RRT* implementation so that the
-% existing plotting code can still display the final belief path.
+% Initilize node with the value which will not be outputted by algorithm
 node(1:N) = struct('x', ini_st*ones(1,2), 'P', ini_P, 'parent', 0,...
     'value', ini_value, 'ra', ini_st, 'rb', ini_st, 'ang', ini_st,...
     'ellipse_rect', ini_st*ones(1,4));
 
-% node.x: The position (2-D) of the roadmap vertex
-% node.P: The covariance (2-D) of the roadmap vertex
-% node.parent: The predecessor on the final shortest path tree
-% node.value: The shortest path cost from the initial vertex
-% node.ra, node.rb, node.ang, node.ellipse_rect: Ellipse data for plotting
+% node.x: The position (2-D) of the roadmap vertex   (1*2 vector)
+% node.P: The covariance (2-D) of the roadmap vertex (2*2 matrix)
+% node.parent: The predecessor on the final shortest path tree (scalar value)
+% node.value: The shortest path cost from the initial vertex (scalar value)
+% node.ra: The length of major axis of ellipse  (scalar value)
+% node.rb: The length of minor axis of ellipse  (scalar value)
+% node.ang: The rotation angle of the ellipse (range is from 0 to 2*pi) (scalar value)
+% node.ellipse_rect: A bounding box which surrouds the ellipse 
+%        [bottom-left-x bottom-left-y width height]  ([1, 4] matrix)
 
 %% PRM parameters
 
 % Two vertices are considered for a connection when their symmetric
 % Euclidean-plus-Frobenius distance is less than this value. This is the
 % same proxy distance used by Algorithm 2 for nearest-neighbor operations.
-connection_radius = 0.15;
+connection_radius = 0.5;
 
 % The sampling routine normally uses these values to scale an RRT sample
 % toward its nearest tree vertex. An infinite radius disables that scaling,
@@ -49,36 +52,56 @@ R = (1/1000)*eye(2);
 % Confidence bound used for collision checking
 chi = chi2inv(0.8,2);
 
-%% Environment definition and properties
+%% Environment definition and Properties
 
-% Current environment is the "multiple obstacle" environment.
-obstacle_edge = obstacle_multi();
-obs_polyshape = obstacle_polyshape();
+% current enviroment is  " multiple obstacle enviroment" 
+        
+        % define obstacle as a set of edges 
+        % each edge is defined by: start point, end point, slope, and Y_axis
+        % intercept
+        obstacle_edge = obstacle_multi();
+        obs_polyshape= obstacle_polyshape(); %definition of obstacles to use polyshape functionalities of Matlab
 
-% Target(final) area [xmin, xmax; ymin, ymax]
-target = [0.8, 0.9; 0.1, 0.2];
+        % Target(final) area [xmin, xmax; ymin, ymax]
+        target = [0.8, 0.9; 0.1, 0.2];
 
-% Path planning area
-bound(1).x = [0,1];
-bound(2).x = [0,1];
+        % Path planning area
+        bound(1).x = [0,1];
+        bound(2).x = [0,1];
 
-% Acceptable range for the eigenvalues of the sampled covariance matrix
-bound(1).P = [10^-9,10^-3];
-bound(2).P = [10^-9,10^-3];
+        % The acceptable range for the eigenvalues of the sampled covariance matrix
+        bound(1).P = [10^-9,10^-3];
+        bound(2).P = [10^-9,10^-3];
 
-% Initial roadmap vertex
-node(1).x = [0.1, 0.1];
+        % The position of the initial node
+        node(1).x = [0.1, 0.1];
+
+%% The setting for initial node
 node(1).P = 1e-4 * eye(2);
 node(1).value = 0;
-[node(1).ra,node(1).rb,node(1).ang,node(1).ellipse_rect] = ...
-    error_ellipse(node(1).x, node(1).P, chi);
+
+[node(1).ra,node(1).rb,node(1).ang,node(1).ellipse_rect] = error_ellipse(node(1).x, node(1).P, chi);
+% [ra=major axis, rb=minor axis, ang= rotation angle , rect=bounding box] 
+% = error_ellipse(x= 2D position of the ellipse, P = covariance , chi= confidence level)
 
 %% Parameters for collision checking along a roadmap edge
 
 % How many intermediate ellipses are used to check one directed edge
 num_props = 10;
-prop(1:num_props) = struct('x', ini_st*ones(1,2), 'P', ini_st*eye(2), ...
-    'ra', ini_st, 'rb', ini_st, 'ang', ini_st, 'ellipse_rect', zeros(1,4));
+
+% Definition of intermediate ellipses 
+prop(1:num_props) = struct('x', ini_st*ones(1,2), 'P', ini_st*eye(2), 'ra', ini_st,...
+    'rb', ini_st, 'ang', ini_st, 'ellipse_rect', zeros(1,4));
+
+% Initialize "prop", which have following structure
+% prop.x: The position (2-D) of the node  (1*2 vector)
+% prop.P: The covariance (2-D) of the node  (2*2 matrix)
+% prop.ra: The length of major axis of ellipse  (scalar)
+% prop.rb: The length of minor axis of ellipse  (scalar)
+% prop.ang: The rotation angle of the ellipse   (range is from 0 to 2*pi)
+% prop.ellipse_rect: A bounding box which surrouds the ellipse
+%        [bottom-left-x bottom-left-y width height]
+% prop.ellipse_rect: Used for collision checking (Boolean)
 
 %% PRM algorithm
 
@@ -165,10 +188,14 @@ saver = struct('path', path, 'node', N);
 min_path_data = nan(N,1);
 min_path_data(N) = min_path_leng;
 
-% The file name used for saved data. Data is saved in the data folder.
+%% Output Data
+%%%%%%%%%%%%%% All data should be saved here %%%%%%%%%%%%%%%
+% The file name used for save the data
+% Data is saved in "data" folder
+% Name includes N, alpha value, safety percentage 
 savename = ['data/PRM_N', num2str(N), '_alpha_', num2str(alpha), ...
     '_radius_', num2str(connection_radius)];
 savename(savename=='.') = [];
 save(savename)
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 timeElapsed = toc;
