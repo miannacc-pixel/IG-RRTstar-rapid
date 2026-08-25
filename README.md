@@ -1,47 +1,66 @@
-# IG-RRTstar-rapid
-===============================================================================================================================
-Basic information
-First, create a empty folder "data", where the data will be saved.
-By running "main.m", you can start the information-geometric PRM path-planning algorithm.
-===============================================================================================================================
+# IG-RRTstar-rapid — PRM with EKF-Propagated Covariance
 
-Codes related with the Path-planning simulation:
+This `PRM-stigmergy` branch is rebuilt from the `PRM` branch. It preserves the
+PRM code structure, environment, output format, plotting script, original
+cost-function interface, and collision checker.
 
-main.m: The main function to run the directed information-geometric PRM
+The one algorithmic change is that PRM vertices sample position only. The
+covariance `P` is no longer randomly sampled at every vertex. It starts from
+the initial covariance and is EKF-predicted each time the shortest-path search
+extends a roadmap edge.
 
-dijkstra_prm.m: Computes shortest paths on the completed directed roadmap
+## Running the planner
 
-reconstruct_prm_path.m: Reconstructs the final source-to-target PRM path
+1. Create a `data` folder in the repository root if it does not already
+   exist.
+2. Open MATLAB in this repository folder.
+3. Run `main.m`.
+4. Run `plot_for_paper_multipleObs.m` after changing its `load(...)` line to
+   the name of the saved result, if necessary.
 
-obstacle_multi.m & obstacle_polyshape.m :  specify the obstacles position and their shape for a sample "multiple obstacles" enviroment
+Results retain the PRM save format, so the existing plotter continues to use
+`saver.path` and `node`.
 
-sample_x_P_randomly.m: It samples x and P randomly 
+## EKF covariance propagation
 
-sample_polyshape_check.m: samples x outside of all obstacle. It is used in sample_x_P_randomly.m
+For an accepted edge of length `Dtravel`, covariance is propagated as
 
-sample_x_P_randomly.m: It samples collision-free belief states for roadmap vertices
+```
+P_next = F * P_current * F' + R * Dtravel
+```
 
-error_ellipse.m: Calculate the length of the long & short axes, angle, and bounding box of a given ellipse
+where the current configuration uses `F = I` and `R = 1e-4 * I` as process
+noise per traveled meter. This is a temporary prediction-only value selected
+so that the confidence ellipse can fit within the current goal region; it
+should be calibrated to the robot/process model before reporting final
+results. The initial node remains the only node with a directly specified
+covariance.
 
-dist_ig_mat.m & dist_ig_mat2.m: The functions which calculate the RI-distance. The difference between these two functions is whether we want to measure the distance from the set of nodes to one node, or from one node to the set of nodes.
+Because `P_next` equals the predicted covariance used in the original
+information-geometric distance, the original information term is zero under
+this prediction-only model. The current path cost is consequently travel
+distance, while `dist_ig_mat.m` is retained as the cost-function interface for
+the planned later modification.
 
-Q_hat_sol.m: It computes information cost using SVD
+## Files used by this branch
 
-check_lossless.m: Checks whether a directed roadmap transition is lossless
+- `main.m` — PRM parameters, environment, spatial sampling, neighborhood
+  construction, search, goal selection, and data saving.
+- `sample_free_position.m` — samples a collision-free spatial PRM vertex;
+  does not sample covariance.
+- `dijkstra_ekf_prm.m` — performs Dijkstra relaxation and EKF-predicts the
+  covariance of each accepted candidate edge.
+- `reconstruct_prm_path.m` — reconstructs the selected source-to-goal PRM
+  path, unchanged from the PRM branch.
+- `dist_ig_mat.m` — retains the existing travel-plus-information cost
+  interface.
+- `error_ellipse.m` and `psuedo_obs_check_line2_oct.m` — unchanged confidence
+  ellipse and chance-constrained collision checking.
+- `plot_for_paper_multipleObs.m` — unchanged PRM plotting script.
 
+## Existing source files retained for comparison
 
-******** The function related for obstacle checking ********
-boundary_check.m: It checks whether an ellipse intersect with regions's boundary
-
-psuedo_obs_check_line_oct.m: It checks if a collision with obstacles during the transition between nodes occurs. 
-psuedo_obs_check_line2_oct.m: The same with the above 
-
-Is_two_lineseg_cross.m: check if two line segment intersect
-make_octagon.m: generate a octagon from a bounding box for better obstacle checking
-minDist_two_LineSeg_in.m: compute the minimum distance between two line segments. It is used for collision pre-checking
-**********************************************************
-===============================================================================================================================
-Codes related with the plotting
-plot_for_paper_multipleObs: This function plots results for "multiple obstacles" enviroment
-plot_path_cost: It plots the path length as a function of number of samples. It should be run right after main.m
-===============================================================================================================================
+`sample_x_P_randomly.m`, `sample_polyshape_check.m`, `check_lossless.m`, and
+`dijkstra_prm.m` are retained from the PRM branch but are not called by this
+EKF-propagated version. They remain useful for direct comparison with the
+random-covariance PRM implementation.

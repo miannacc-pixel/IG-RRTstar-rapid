@@ -28,26 +28,19 @@ node(1:N) = struct('x', ini_st*ones(1,2), 'P', ini_P, 'parent', 0,...
 
 %% PRM parameters
 
-% Two vertices are considered for a connection when their symmetric
-% Euclidean-plus-Frobenius distance is less than this value. This is the
-% same proxy distance used by Algorithm 2 for nearest-neighbor operations.
+% Two spatial PRM vertices are considered for a connection when their
+% Euclidean distance is less than this value.
 connection_radius = 0.5;
-
-% The sampling routine normally uses these values to scale an RRT sample
-% toward its nearest tree vertex. An infinite radius disables that scaling,
-% yielding independent PRM samples while retaining the original collision-free
-% belief-state sampler.
-% sample_polyshape_check initializes its legacy nearest-vertex output only
-% when this threshold is positive. realmin preserves independent PRM samples
-% while allowing that initialization to occur.
-radius_min = realmin;
-sampling_radius = inf;
 
 % Weight on information cost
 alpha = 0.2;
 
-% The gain of noise (In the paper, we denote this as W)
-R = (1/1000)*eye(2);
+% EKF prediction model. P is propagated along each accepted PRM edge rather
+% than independently sampled at every roadmap vertex.
+F = eye(2);
+
+% The gain of process noise per traveled meter (W in the original paper).
+R = (1/10000)*eye(2);
 
 % Confidence bound used for collision checking
 chi = chi2inv(0.8,2);
@@ -68,10 +61,6 @@ chi = chi2inv(0.8,2);
         % Path planning area
         bound(1).x = [0,1];
         bound(2).x = [0,1];
-
-        % The acceptable range for the eigenvalues of the sampled covariance matrix
-        bound(1).P = [10^-9,10^-3];
-        bound(2).P = [10^-9,10^-3];
 
         % The position of the initial node
         node(1).x = [0.1, 0.1];
@@ -107,65 +96,21 @@ prop(1:num_props) = struct('x', ini_st*ones(1,2), 'P', ini_st*eye(2), 'ra', ini_
 
 tic
 
-% Step 1: Sample collision-free belief states to create the roadmap vertices.
-% No vertex is selected as a parent during sampling.
+% Step 1: Sample collision-free spatial states to create the roadmap vertices.
+% Their covariances are assigned later by EKF propagation during the search.
 for ii = 2:N
-    [x, P, ra, rb, ang, ellipse_rect] = sample_x_P_randomly(...
-        bound, node(1), 1, radius_min, sampling_radius, chi, ...
-        obstacle_edge, obs_polyshape);
-
-    node(ii).x = x;
-    node(ii).P = P;
-    node(ii).ra = ra;
-    node(ii).rb = rb;
-    node(ii).ang = ang;
-    node(ii).ellipse_rect = ellipse_rect;
-
+    node(ii).x = sample_free_position(bound, obs_polyshape);
 end
 
-% Step 2: Build a directed roadmap. The information-geometric cost is
-% asymmetric, so feasibility and cost must be evaluated in both directions.
-% A PRM vertex is a fixed belief state; therefore, only lossless transitions
-% are added rather than modifying a vertex covariance as RRT* does.
-edge_cost = inf(N,N);
+% Step 2: Build spatial PRM neighborhoods. Edge covariances cannot be fixed
+% here because they depend on the belief propagated to the source vertex.
+x_all = reshape([node.x], 2, N).';
+neighbor_ID = rangesearch(x_all, x_all, connection_radius);
 
-for ii = 1:N-1
-    for jj = ii+1:N
-        proxy_distance = norm(node(ii).x - node(jj).x) + ...
-            norm(node(ii).P - node(jj).P, 'fro');
-
-        if proxy_distance <= connection_radius
-            % Test the directed edge ii -> jj.
-            if ~check_lossless(node(ii).x, node(ii).P, node(jj).x, node(jj).P, R)
-                issue_flag = psuedo_obs_check_line2_oct(node(ii), node(jj), ...
-                    obstacle_edge, R, chi, bound, num_props, prop);
-                if ~issue_flag
-                    edge_cost(ii,jj) = dist_ig_mat(node(ii).x.', node(ii).P, ...
-                        node(jj).x.', node(jj).P, alpha, R);
-                end
-            end
-
-            % Test the reverse directed edge jj -> ii independently.
-            if ~check_lossless(node(jj).x, node(jj).P, node(ii).x, node(ii).P, R)
-                issue_flag = psuedo_obs_check_line2_oct(node(jj), node(ii), ...
-                    obstacle_edge, R, chi, bound, num_props, prop);
-                if ~issue_flag
-                    edge_cost(jj,ii) = dist_ig_mat(node(jj).x.', node(jj).P, ...
-                        node(ii).x.', node(ii).P, alpha, R);
-                end
-            end
-        end
-    end
-end
-
-% Step 3: Search the completed directed roadmap from the initial vertex.
-% Dijkstra's algorithm is valid because every travel-plus-information cost is
-% nonnegative.
-[distance, predecessor] = dijkstra_prm(edge_cost, 1);
-for ii = 1:N
-    node(ii).value = distance(ii);
-    node(ii).parent = predecessor(ii);
-end
+% Step 3: Dijkstra search with EKF covariance propagation during relaxation.
+% The helper preserves the original node.value and node.parent outputs.
+[node, distance, predecessor] = dijkstra_ekf_prm(node, neighbor_ID, F, R, ...
+    alpha, obstacle_edge, chi, bound, num_props, prop);
 
 % Find roadmap vertices whose complete confidence ellipses lie in the target.
 all_rec = reshape([node.ellipse_rect], [4, N]).';
@@ -193,7 +138,7 @@ min_path_data(N) = min_path_leng;
 % The file name used for save the data
 % Data is saved in "data" folder
 % Name includes N, alpha value, safety percentage 
-savename = ['data/PRM_N', num2str(N), '_alpha_', num2str(alpha), ...
+savename = ['data/PRM_stigmergy_N', num2str(N), '_alpha_', num2str(alpha), ...
     '_radius_', num2str(connection_radius)];
 savename(savename=='.') = [];
 save(savename)
