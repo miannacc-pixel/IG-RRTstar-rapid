@@ -12,12 +12,13 @@ ini_P = diag([-100 5]); % initial covariance for unsampled nodes
 ini_value = 5000; % initial cost for unsampled nodes
 
 % Initilize node with the value which will not be outputted by algorithm
-node(1:N) = struct('x', ini_st*ones(1,2), 'P', ini_P, 'parent', 0,...
-    'value', ini_value, 'ra', ini_st, 'rb', ini_st, 'ang', ini_st,...
-    'ellipse_rect', ini_st*ones(1,4));
+node(1:N) = struct('x', ini_st*ones(1,2), 'P', ini_P, 't', ini_st, ...
+    'parent', 0, 'value', ini_value, 'ra', ini_st, 'rb', ini_st, ...
+    'ang', ini_st, 'ellipse_rect', ini_st*ones(1,4));
 
 % node.x: The position (2-D) of the roadmap vertex   (1*2 vector)
 % node.P: The covariance (2-D) of the roadmap vertex (2*2 matrix)
+% node.t: The elapsed travel time from the initial vertex (scalar)
 % node.parent: The predecessor on the final shortest path tree (scalar value)
 % node.value: The shortest path cost from the initial vertex (scalar value)
 % node.ra: The length of major axis of ellipse  (scalar value)
@@ -32,18 +33,32 @@ node(1:N) = struct('x', ini_st*ones(1,2), 'P', ini_P, 'parent', 0,...
 % Euclidean distance is less than this value.
 connection_radius = 0.5;
 
-% Weight on information cost
-alpha = 0.2;
+% Weight on terminal uncertainty in Dtotal = Dtravel + lambda*trace(Pgoal).
+lambda = 1000;
 
 % EKF prediction model. P is propagated along each accepted PRM edge rather
 % than independently sampled at every roadmap vertex.
 F = eye(2);
+
+% Fixed-speed time model. Time is propagated along an edge as
+% t_next = t_current + Dtravel/robot_speed.
+robot_speed = 1.0; % [m/s]
 
 % The gain of process noise per traveled meter (W in the original paper).
 R = (1/10000)*eye(2);
 
 % Confidence bound used for collision checking
 chi = chi2inv(0.8,2);
+
+%% Optional stigmergy marker
+
+% Toggle this value to compare the prediction-only baseline (false) with an
+% available static marker measurement (true).
+marker_enabled = true;
+marker.x = [0.80, 0.60];
+marker.sensing_radius = 0.10;
+marker.H = eye(2);
+marker.R = 1e-5 * eye(2);
 
 %% Environment definition and Properties
 
@@ -67,7 +82,8 @@ chi = chi2inv(0.8,2);
 
 %% The setting for initial node
 node(1).P = 1e-4 * eye(2);
-node(1).value = 0;
+node(1).t = 0;
+node(1).value = lambda * trace(node(1).P);
 
 [node(1).ra,node(1).rb,node(1).ang,node(1).ellipse_rect] = error_ellipse(node(1).x, node(1).P, chi);
 % [ra=major axis, rb=minor axis, ang= rotation angle , rect=bounding box] 
@@ -107,25 +123,30 @@ end
 x_all = reshape([node.x], 2, N).';
 neighbor_ID = rangesearch(x_all, x_all, connection_radius);
 
-% Step 3: Dijkstra search with EKF covariance propagation during relaxation.
-% The helper preserves the original node.value and node.parent outputs.
-[node, distance, predecessor] = dijkstra_ekf_prm(node, neighbor_ID, F, R, ...
-    alpha, obstacle_edge, chi, bound, num_props, prop);
+% Step 3: Dijkstra search with EKF covariance and time propagation. When the
+% marker is enabled, use one layer before sensing and one after sensing.
+if marker_enabled
+    [node, distance, predecessor, path, min_path_leng] = ...
+        dijkstra_ekf_marker_prm(node, neighbor_ID, F, R, robot_speed, lambda, ...
+        marker, obstacle_edge, chi, bound, num_props, prop, target);
+else
+    [node, distance, predecessor] = dijkstra_ekf_prm(node, neighbor_ID, F, R, ...
+        robot_speed, lambda, obstacle_edge, chi, bound, num_props, prop);
 
-% Find roadmap vertices whose complete confidence ellipses lie in the target.
-all_rec = reshape([node.ellipse_rect], [4, N]).';
-in_target = all_rec(:,1) >= target(1,1) & ...
-    all_rec(:,1) + all_rec(:,3) <= target(1,2) & ...
-    all_rec(:,2) >= target(2,1) & ...
-    all_rec(:,2) + all_rec(:,4) <= target(2,2);
-target_ID = find(in_target & isfinite(distance));
+    % Find roadmap vertices whose complete confidence ellipses lie in target.
+    all_rec = reshape([node.ellipse_rect], [4, N]).';
+    in_target = all_rec(:,1) >= target(1,1) & ...
+        all_rec(:,1) + all_rec(:,3) <= target(1,2) & ...
+        all_rec(:,2) >= target(2,1) & ...
+        all_rec(:,2) + all_rec(:,4) <= target(2,2);
+    target_ID = find(in_target & isfinite(distance));
 
-% Reconstruct the lowest-cost path from a target vertex back to vertex 1.
-path = [];
-min_path_leng = -10^10;
-if ~isempty(target_ID)
-    [min_path_leng, target_index] = min(distance(target_ID));
-    path = reconstruct_prm_path(predecessor, target_ID(target_index), 1);
+    path = [];
+    min_path_leng = -10^10;
+    if ~isempty(target_ID)
+        [min_path_leng, target_index] = min(distance(target_ID));
+        path = reconstruct_prm_path(predecessor, target_ID(target_index), 1);
+    end
 end
 
 % Preserve the original save variables used by the plotting scripts.
@@ -137,8 +158,14 @@ min_path_data(N) = min_path_leng;
 %%%%%%%%%%%%%% All data should be saved here %%%%%%%%%%%%%%%
 % The file name used for save the data
 % Data is saved in "data" folder
-% Name includes N, alpha value, safety percentage 
-savename = ['data/PRM_stigmergy_N', num2str(N), '_alpha_', num2str(alpha), ...
+% Name includes marker mode, N, lambda value, and connection radius.
+if marker_enabled
+    marker_name = 'marker_on';
+else
+    marker_name = 'marker_off';
+end
+savename = ['data/PRM_stigmergy_', marker_name, '_N', num2str(N), ...
+    '_lambda_', num2str(lambda), ...
     '_radius_', num2str(connection_radius)];
 savename(savename=='.') = [];
 save(savename)

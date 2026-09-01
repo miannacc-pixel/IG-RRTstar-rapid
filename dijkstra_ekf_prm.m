@@ -1,17 +1,18 @@
 function [node, distance, predecessor] = dijkstra_ekf_prm(node, neighbor_ID, ...
-    F, R, alpha, obstacle_edge, chi, bound, num_props, prop)
-%DIJKSTRA_EKF_PRM Dijkstra search with EKF-propagated covariance.
+    F, R, robot_speed, lambda, obstacle_edge, chi, bound, num_props, prop)
+%DIJKSTRA_EKF_PRM Dijkstra search with propagated covariance and time.
 %
 % The PRM samples positions only. Whenever a shortest-path candidate extends
 % from a settled vertex, its endpoint covariance is predicted as
-% P_next = F*P_current*F' + R*Dtravel. This preserves the original PRM
-% outputs (node.value and node.parent) while replacing random P sampling.
+% P_next = F*P_current*F' + R*Dtravel and its time is increased by
+% Dtravel/robot_speed. The Dijkstra distance is the exact objective
+% Dtotal = Dtravel + lambda*trace(P) for the prediction-only model.
 
 N = numel(node);
 distance = inf(N,1);
 predecessor = zeros(N,1);
 settled = false(N,1);
-distance(1) = 0;
+distance(1) = lambda * trace(node(1).P);
 
 while true
     candidate_ID = find(~settled);
@@ -38,12 +39,14 @@ while true
         travel_distance = norm(node(next_vertex).x - node(current_ID).x);
         P_next = F * node(current_ID).P * F.' + R * travel_distance;
         P_next = (P_next + P_next.') / 2;
+        t_next = node(current_ID).t + travel_distance / robot_speed;
 
         % The legacy collision checker requires the ellipse fields at both
         % ends of the edge, so construct only the candidate endpoint here.
         [ra, rb, ang, ellipse_rect] = error_ellipse(node(next_vertex).x, P_next, chi);
         next_node = node(next_vertex);
         next_node.P = P_next;
+        next_node.t = t_next;
         next_node.ra = ra;
         next_node.rb = rb;
         next_node.ang = ang;
@@ -55,11 +58,10 @@ while true
             continue
         end
 
-        % P_next is exactly the EKF prediction P_hat used by dist_ig_mat.
-        % Therefore its information term is zero, while the original cost
-        % function and interface remain available for a later modification.
-        edge_cost = dist_ig_mat(node(current_ID).x.', node(current_ID).P, ...
-            next_node.x.', next_node.P, alpha, R);
+        % This increment telescopes from the source to the endpoint, so each
+        % stored distance equals total travel plus lambda*trace(P) exactly.
+        edge_cost = travel_distance + lambda * ...
+            (trace(next_node.P) - trace(node(current_ID).P));
         tentative_distance = distance(current_ID) + edge_cost;
 
         if tentative_distance < distance(next_vertex)
