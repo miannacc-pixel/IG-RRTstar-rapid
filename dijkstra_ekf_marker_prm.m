@@ -4,8 +4,7 @@ function [node, distance, predecessor, path, goal_cost] = dijkstra_ekf_marker_pr
 %DIJKSTRA_EKF_MARKER_PRM Two-layer Dijkstra search with an optional marker.
 %
 % Layer 1 represents paths before the marker is sensed. Layer 2 represents
-% paths after its single EKF measurement update. This avoids an unbounded
-% belief-label search while retaining the marker's effect on P_goal.
+% paths after its single EKF measurement update.
 
 N = numel(node);
 infP = nan(2,2,N);
@@ -96,7 +95,7 @@ while true
 end
 
 % Choose the lower-cost target across both layers, then copy its beliefs into
-% the legacy node format used by the plotter.
+% the node format used by the plotter.
 [goal_vertex, goal_state, goal_cost] = choose_goal(node, P_before, P_after, ...
     d_before, d_after, chi, target);
 path = [];

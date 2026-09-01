@@ -1,8 +1,5 @@
 function x = sample_free_position(bound, obs_polyshape)
 %SAMPLE_FREE_POSITION Samples a spatial PRM vertex outside all obstacles.
-%
-% Covariance is deliberately not sampled here. It is propagated from the
-% initial belief by dijkstra_ekf_prm when a roadmap edge is relaxed.
 
 while true
     x = [bound(1).x(1) + diff(bound(1).x) * rand, ...

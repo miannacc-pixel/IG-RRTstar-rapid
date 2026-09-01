@@ -47,7 +47,7 @@ for kk = 1:length(obstacle_edge)
     fill([obstacle_edge(kk).start(1) obstacle_edge(kk).end(1)], [obstacle_edge(kk).start(2) obstacle_edge(kk).end(2)],'k','LineWidth',0.5)
 end
 
-% Show the optional marker and sensing radius for marker-enabled runs.
+% Show the marker and sensing radius for marker-enabled runs.
 if exist('marker_enabled','var') && marker_enabled
     theta_marker = linspace(0,2*pi);
     plot(marker.x(1) + marker.sensing_radius*cos(theta_marker), ...
@@ -61,9 +61,7 @@ end
 theta_grid = linspace(0,2*pi);
 marker_has_been_sensed = false;
 
-% Plot propagated ellipses in the physical source-to-goal direction. The
-% original plotter walked goal-to-source while adding process noise, which
-% incorrectly made covariance appear to grow backward along the path.
+% Plot ellipses connecting two nodes
 for jj = 1:length(saver(end).path)-1
     x0 = node(saver(end).path(jj)).x;
     xF = node(saver(end).path(jj+1)).x;

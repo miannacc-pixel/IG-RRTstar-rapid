@@ -41,7 +41,7 @@ while true
         P_next = (P_next + P_next.') / 2;
         t_next = node(current_ID).t + travel_distance / robot_speed;
 
-        % The legacy collision checker requires the ellipse fields at both
+        % The collision checker requires the ellipse fields at both
         % ends of the edge, so construct only the candidate endpoint here.
         [ra, rb, ang, ellipse_rect] = error_ellipse(node(next_vertex).x, P_next, chi);
         next_node = node(next_vertex);
