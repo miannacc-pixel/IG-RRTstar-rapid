@@ -13,6 +13,8 @@ dijkstra_ekf_prm.m: performs Dijkstra relaxation, propagates covariance and elap
 
 dijkstra_ekf_marker_prm.m: compares the no-marker and marker-sensed layers when `marker_enabled` is true
 
+dist_stigmergy_mat.m: defines the shared `Dtotal` edge-cost increment for both marker-on and marker-off searches
+
 marker_encounter.m & ekf_update_covariance.m: detect marker-range entry and apply the EKF measurement update.
 
 reconstruct_prm_path.m: Reconstructs the final source-to-target PRM path
