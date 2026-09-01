@@ -60,8 +60,8 @@ while true
 
         % This increment telescopes from the source to the endpoint, so each
         % stored distance equals total travel plus lambda*trace(P) exactly.
-        edge_cost = travel_distance + lambda * ...
-            (trace(next_node.P) - trace(node(current_ID).P));
+        edge_cost = dist_stigmergy_mat(travel_distance, node(current_ID).P, ...
+            next_node.P, lambda);
         tentative_distance = distance(current_ID) + edge_cost;
 
         if tentative_distance < distance(next_vertex)

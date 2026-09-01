@@ -127,7 +127,7 @@ end
 function [nextP,nextt,cost,feasible] = normal_edge(x0,x1,P,t,F,R,v,lambda,edges,chi,bound,nprop,prop)
 d = norm(x1-x0); nextP = F*P*F.' + R*d; nextP = (nextP+nextP.')/2; nextt = t+d/v;
 feasible = ~psuedo_obs_check_line2_oct(belief_node(x0,P,chi), belief_node(x1,nextP,chi), edges,R,chi,bound,nprop,prop);
-cost = d + lambda*(trace(nextP)-trace(P));
+cost = dist_stigmergy_mat(d, P, nextP, lambda);
 end
 
 function [nextP,nextt,cost,feasible] = marker_edge(x0,x1,P,t,F,R,v,lambda,marker,fraction,edges,chi,bound,nprop,prop)
@@ -136,7 +136,7 @@ feasible = ~psuedo_obs_check_line2_oct(belief_node(x0,P,chi), belief_node(x1,Pen
 Ppre=F*P*F.'+R*(fraction*d); Ppre=(Ppre+Ppre.')/2;
 Ppost=ekf_update_covariance(Ppre,marker.H,marker.R);
 nextP=F*Ppost*F.'+R*((1-fraction)*d); nextP=(nextP+nextP.')/2;
-cost=d+lambda*(trace(nextP)-trace(P));
+cost=dist_stigmergy_mat(d, P, nextP, lambda);
 end
 
 function n = belief_node(x,P,chi)
