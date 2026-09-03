@@ -1,9 +1,9 @@
 % PLOT_MARKER_COMPARISON Compare marker-disabled and marker-enabled runs.
 %
-% This script creates panel (c) for the workshop figure. It loads one PRM
-% result with the marker disabled and a matching result with the marker
-% enabled, then compares terminal uncertainty, path length, and the exact
-% planning objective Dtotal = Dtravel + lambda*trace(Pgoal).
+% This script loads one PRM result with the marker disabled and a 
+% matching result with the marker enabled, then compares terminal 
+% uncertainty, path length, and the exact planning objective 
+% Dtotal = Dtravel + lambda*trace(Pgoal).
 %
 % Run main.m once with marker_enabled = false and once with
 % marker_enabled = true before running this script. Change only the two
@@ -44,7 +44,6 @@ make_comparison_bar([off_metrics.total_cost, on_metrics.total_cost], ...
 
 sgtitle('Effect of Stigmergy Marker Sensing', 'FontWeight', 'bold')
 
-% Save panel (c) next to the marker-enabled data with a matching basename.
 [result_folder, result_name] = fileparts(marker_on_file);
 comparison_name = strrep(result_name, 'marker_on', 'marker_comparison');
 exportgraphics(fig_f, fullfile(result_folder, [comparison_name, '.png']), ...
@@ -56,7 +55,6 @@ fprintf('Marker on : tr(Pgoal) = %.6g, Dtravel = %.6g m, Dtotal = %.6g\n', ...
     on_metrics.trace_P_goal, on_metrics.travel_distance, on_metrics.total_cost);
 
 function metrics = path_metrics(run, filename)
-%PATH_METRICS Reconstruct the three reported values from a saved PRM run.
 
 if ~isfield(run, 'saver') || isempty(run.saver) || isempty(run.saver(end).path)
     error('plot_marker_comparison:NoPath', ...
@@ -84,7 +82,6 @@ metrics.total_cost = metrics.travel_distance + ...
 end
 
 function make_comparison_bar(values, labels, colors, plot_title, y_label, value_format)
-%MAKE_COMPARISON_BAR Draw one metric with independent, readable scaling.
 
 bar_handle = bar(values, 'FaceColor', 'flat');
 bar_handle.CData = colors;

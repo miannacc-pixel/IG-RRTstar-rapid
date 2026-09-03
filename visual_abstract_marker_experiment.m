@@ -1,20 +1,20 @@
 % VISUAL_ABSTRACT_MARKER_EXPERIMENT
-% Generates a single visual-abstract figure from two real PRM searches over
-% the same sampled roadmap. Path A is prediction-only (marker unavailable).
+% Generates visual-abstract figure from two real PRM searches over the 
+% same sampled roadmap. Path A is prediction-only (marker unavailable).
 % Path B is marker-aware and may detour to the stigmergic sensing region.
 
 clear
 close all
 clc
 
-%% Reproducible experiment parameters
+%% Experiment parameters
 rng(23, 'twister')
 
 N = 2000;
 connection_radius = 0.5;
-lambda = 2500;            % Emphasizes terminal uncertainty for the visual.
+lambda = 2500;            
 F = eye(2);
-R = 1e-4 * eye(2);        % Process-noise covariance per traveled meter.
+R = 1e-4 * eye(2);        
 robot_speed = 1.0;
 chi = chi2inv(0.8, 2);
 num_props = 8;
@@ -110,7 +110,6 @@ range_handle = plot(ax, marker.x(1) + marker.sensing_radius*cos(theta), ...
 marker_handle = plot(ax, marker.x(1), marker.x(2), 'p', ...
     'Color', marker_color, 'MarkerFaceColor', marker_color, 'MarkerSize', 13);
 
-% Draw Path A first, then Path B on top so both routes remain visible.
 path_a_handle = plot_path_and_covariance(ax, node_off, path_off, R, chi, ...
     num_props, [], false, path_a_color);
 path_b_handle = plot_path_and_covariance(ax, node_on, path_on, R, chi, ...
