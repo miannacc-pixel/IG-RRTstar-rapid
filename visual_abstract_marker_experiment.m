@@ -81,6 +81,9 @@ metrics_on = calculate_path_metrics(node_on, path_on, lambda);
 path_a_color = [0.80 0.16 0.14];
 path_b_color = [0.00 0.35 0.80];
 marker_color = [0.4940 0.1840 0.5560];
+obstacle_color = [187/255, 139/255, 172/255];
+goal_fill_color = [0.80, 1.00, 0.80];
+goal_edge_color = [0.00, 0.50, 0.00];
 
 fig_f = figure('Color', 'w');
 fig_f.Position = [150 90 760 710];
@@ -94,14 +97,14 @@ box(ax, 'on')
 set(ax, 'FontName', 'Arial', 'FontSize', 12, 'LineWidth', 1.2)
 
 for ii = 1:numel(obstacles)
-    fill(ax, obstacles(ii).x, obstacles(ii).y, [0.63 0.65 0.66], ...
+    fill(ax, obstacles(ii).x, obstacles(ii).y, obstacle_color, ...
         'EdgeColor', [0.15 0.15 0.15], 'LineWidth', 1)
 end
 
-rectangle(ax, 'Position', [target(1, 1), target(2, 1), ...
-    diff(target(1, :)), diff(target(2, :))], ...
-    'FaceColor', [0.80 1.00 0.80], 'EdgeColor', [0.0 0.5 0.0], ...
-    'LineWidth', 1.5);
+goal_x = [target(1, 1), target(1, 2), target(1, 2), target(1, 1)];
+goal_y = [target(2, 1), target(2, 1), target(2, 2), target(2, 2)];
+goal_handle = patch(ax, goal_x, goal_y, goal_fill_color, ...
+    'EdgeColor', goal_edge_color, 'LineWidth', 1.5);
 
 theta = linspace(0, 2*pi, 160);
 range_handle = plot(ax, marker.x(1) + marker.sensing_radius*cos(theta), ...
@@ -117,9 +120,6 @@ path_b_handle = plot_path_and_covariance(ax, node_on, path_on, R, chi, ...
 
 start_handle = plot(ax, start(1), start(2), 'o', 'Color', [0.85 0 0], ...
     'MarkerFaceColor', [0.85 0 0], 'MarkerSize', 8);
-goal_handle = plot(ax, node_on(path_on(end)).x(1), ...
-    node_on(path_on(end)).x(2), 'o', 'Color', [0 0.5 0], ...
-    'MarkerFaceColor', [0 0.5 0], 'MarkerSize', 8);
 
 xlabel(ax, 'Location X [m]')
 ylabel(ax, 'Location Y [m]')

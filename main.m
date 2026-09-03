@@ -54,7 +54,7 @@ chi = chi2inv(0.8,2);
 
 % Toggle this value to compare the prediction-only baseline (false) with an
 % available static marker measurement (true).
-marker_enabled = false;
+marker_enabled = true;
 marker.x = [0.80, 0.60];
 marker.sensing_radius = 0.10;
 marker.H = eye(2);
